@@ -1,0 +1,19 @@
+# Environment variables
+.env
+
+# Data directories
+postgres/data/
+n8n/
+
+# TLS certificates
+reverse-proxy/certs/
+*.crt
+*.key
+*.pem
+
+# Database dumps and archives
+*.sql
+*.tar.gz
+
+# Logs
+*.log

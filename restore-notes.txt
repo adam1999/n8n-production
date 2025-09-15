@@ -1,0 +1,67 @@
+n8n Docker Stack - Restore Guide
+=================================
+
+This guide explains how to restore your n8n instance from backups.
+
+Prerequisites:
+- Stop the current n8n stack: docker-compose down
+- Ensure you have backup files in the ./backups directory
+
+Restoration Steps:
+
+1. RESTORE POSTGRESQL DATABASE:
+   a) Start only PostgreSQL service:
+      docker-compose up -d postgres
+   
+   b) Wait for PostgreSQL to be ready (check with docker-compose logs postgres)
+   
+   c) Restore database from backup:
+      docker exec -i n8n-postgres psql -U n8n -d n8n < ./backups/postgres_backup_YYYYMMDD_HHMMSS.sql
+   
+   Alternative method using pg_restore:
+      cat ./backups/postgres_backup_YYYYMMDD_HHMMSS.sql | docker exec -i n8n-postgres psql -U n8n -d n8n
+
+2. RESTORE N8N DATA:
+   a) Stop all services:
+      docker-compose down
+   
+   b) Remove existing n8n data (BACKUP FIRST if needed):
+      rm -rf ./n8n/*
+   
+   c) Extract n8n data backup:
+      tar -xzf ./backups/n8n_data_backup_YYYYMMDD_HHMMSS.tar.gz
+   
+   OR if using combined backup:
+      tar -xzf ./backups/n8n_complete_backup_YYYYMMDD_HHMMSS.tar.gz
+      tar -xzf n8n_data_backup_YYYYMMDD_HHMMSS.tar.gz
+
+3. START THE STACK:
+   docker-compose up -d
+
+4. VERIFY RESTORATION:
+   - Check logs: docker-compose logs -f n8n
+   - Access n8n web interface at https://your-domain
+   - Verify your workflows and credentials are restored
+
+TROUBLESHOOTING:
+
+- If n8n fails to start after restore:
+  * Check n8n container logs: docker-compose logs n8n
+  * Verify database connection: docker-compose logs postgres
+  * Ensure file permissions are correct: chown -R 1000:1000 ./n8n
+
+- If database restore fails:
+  * Drop and recreate database:
+    docker exec n8n-postgres psql -U n8n -c "DROP DATABASE IF EXISTS n8n;"
+    docker exec n8n-postgres psql -U n8n -c "CREATE DATABASE n8n;"
+  * Then retry the restore command
+
+- If workflows are missing but database restored successfully:
+  * Check if n8n data directory was properly restored
+  * Verify n8n container has read/write access to ./n8n directory
+
+IMPORTANT NOTES:
+- Always test restores in a separate environment first
+- Ensure the backup versions match your current n8n version
+- Database and n8n data must be from the same point in time
+- Keep multiple backup copies for safety
