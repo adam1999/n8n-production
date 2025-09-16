@@ -3,7 +3,7 @@
 # n8n Docker Stack Backup Script
 # This script creates backups of PostgreSQL database and n8n data
 
-set -e
+set -euo pipefail
 
 # Configuration
 BACKUP_DIR="./backups"
