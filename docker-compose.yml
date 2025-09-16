@@ -40,7 +40,7 @@ services:
       - "traefik.http.routers.api.tls.certresolver=le"
       - "traefik.http.routers.api.service=api@internal"
       # 🔐 Dashboard protection - generate with: htpasswd -nbB admin 'password'
-      - "traefik.http.middlewares.api-auth.basicauth.users=admin:$$2y$$05$$9.YbNZI9FTX9XhXXGJTnO.PQRnhQYXv8jfb8pHxOKDYyQE38n6hU."
+      - "traefik.http.middlewares.api-auth.basicauth.users=admin:$2y$05$BYij7Ja3r/RA0JInbb47.ehtoMWQc1BP60vWgXjtH1N7YbStS9SHq"
       - "traefik.http.routers.api.middlewares=api-auth@docker"
       # Middlewares communs de sécurité
       - "traefik.http.middlewares.sec-headers.headers.stsSeconds=31536000"
