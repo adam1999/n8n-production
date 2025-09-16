@@ -1,0 +1,19 @@
+# Alternative TLS configuration for static certificates
+# Use this instead of Let's Encrypt if you have your own certificates
+# 
+# To use:
+# 1. Rename this file to tls.yml
+# 2. Place your certificates in reverse-proxy/certs/
+# 3. Remove certresolver=le from docker-compose.yml labels
+#
+tls:
+  certificates:
+    - certFile: /certs/fullchain.pem
+      keyFile: /certs/privkey.pem
+  options:
+    default:
+      minVersion: VersionTLS12
+      cipherSuites:
+        - "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384"
+        - "TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305"
+        - "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256"

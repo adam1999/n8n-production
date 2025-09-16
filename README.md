@@ -72,21 +72,30 @@ docker compose logs -f
 
 - [ ] Strong `POSTGRES_PASSWORD` (16+ chars)
 - [ ] Secure `N8N_ENCRYPTION_KEY` (keep it safe!)
-- [ ] Valid SSL certificates
+- [ ] Valid SSL certificates with correct permissions (`chmod 600 *.key`)
 - [ ] Firewall: only 80/443 exposed
+- [ ] Traefik dashboard protected with basic auth
 - [ ] Regular backups scheduled
+- [ ] No sensitive ports exposed (5678, 5432 should be internal only)
 
 ## 🛡️ Post-Deployment Verification
 
+See `deploy-checklist.md` for complete validation procedures.
+
 ```bash
+# Quick validation
+bash validate-stack.sh
+
 # Check running services
 docker compose ps
 
-# Verify ports (should only show 80/443)
-ss -tulpen | grep -E ':80|:443|:5678|:5432'
+# Verify ports security (critical!)
+ss -tulpen | grep -E ':(80|443)\s'  # Should show 80/443 only
+ss -tulpen | grep -E ':(5678|5432)\s' || echo "✅ OK: internal ports not exposed"
 
-# Test access
+# Test HTTPS + redirect
 curl -I https://your-domain.com
+curl -I http://your-domain.com  # Should redirect to HTTPS
 ```
 
 ## 💾 Backups

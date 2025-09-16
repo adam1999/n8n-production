@@ -15,20 +15,43 @@ services:
       - --providers.file.directory=/dynamic
       - --providers.file.watch=true
       - --log.level=INFO
+      # 🔐 ACME (Let's Encrypt) - HTTP-01
+      - --certificatesresolvers.le.acme.email=${ACME_EMAIL}
+      - --certificatesresolvers.le.acme.storage=/certs/acme.json
+      - --certificatesresolvers.le.acme.httpchallenge=true
+      - --certificatesresolvers.le.acme.httpchallenge.entrypoint=web
+    environment:
+      - TZ=${TZ}
     ports:
       - "80:80"
       - "443:443"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./reverse-proxy/dynamic:/dynamic:ro
-      - ./reverse-proxy/certs:/certs:ro
+      - ./reverse-proxy/certs:/certs
     networks:
       - n8n-network
     labels:
       - "traefik.enable=true"
+      # Dashboard (TLS via LE)
       - "traefik.http.routers.api.rule=Host(`traefik.${DOMAIN_N8N}`)"
+      - "traefik.http.routers.api.entrypoints=websecure"
       - "traefik.http.routers.api.tls=true"
+      - "traefik.http.routers.api.tls.certresolver=le"
       - "traefik.http.routers.api.service=api@internal"
+      # 🔐 Dashboard protection - generate with: htpasswd -nbB admin 'password'
+      - "traefik.http.middlewares.api-auth.basicauth.users=admin:$$2y$$05$$9.YbNZI9FTX9XhXXGJTnO.PQRnhQYXv8jfb8pHxOKDYyQE38n6hU."
+      - "traefik.http.routers.api.middlewares=api-auth@docker"
+      # Middlewares communs de sécurité
+      - "traefik.http.middlewares.sec-headers.headers.stsSeconds=31536000"
+      - "traefik.http.middlewares.sec-headers.headers.stsIncludeSubdomains=true"
+      - "traefik.http.middlewares.sec-headers.headers.forceSTSHeader=true"
+      - "traefik.http.middlewares.sec-headers.headers.contentTypeNosniff=true"
+      - "traefik.http.middlewares.sec-headers.headers.referrerPolicy=no-referrer"
+      - "traefik.http.middlewares.sec-headers.headers.frameDeny=true"
+      - "traefik.http.middlewares.compress.compress=true"
+      - "traefik.http.middlewares.rate100.ratelimit.average=100"
+      - "traefik.http.middlewares.rate100.ratelimit.burst=200"
 
   postgres:
     image: postgres:16-alpine
@@ -48,6 +71,10 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 1g
 
   n8n:
     image: n8nio/n8n:latest
@@ -64,9 +91,12 @@ services:
       - N8N_HOST=${DOMAIN_N8N}
       - N8N_PORT=5678
       - N8N_PROTOCOL=https
+      - N8N_EDITOR_BASE_URL=https://${DOMAIN_N8N}/
       - WEBHOOK_URL=https://${DOMAIN_N8N}/
+      - N8N_SECURE_COOKIE=true
       - GENERIC_TIMEZONE=${TZ}
       - N8N_DIAGNOSTICS_ENABLED=false
+      - TZ=${TZ}
     volumes:
       - ./n8n:/home/node/.n8n
     networks:
@@ -76,14 +106,21 @@ services:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5678/healthz"]
-      interval: 30s
+      interval: 15s
       timeout: 10s
-      retries: 3
+      retries: 20
+    deploy:
+      resources:
+        limits:
+          memory: 1.5g
     labels:
       - "traefik.enable=true"
+      # Router HTTPS principal (avec LE + middlewares)
       - "traefik.http.routers.n8n.rule=Host(`${DOMAIN_N8N}`)"
-      - "traefik.http.routers.n8n.tls=true"
       - "traefik.http.routers.n8n.entrypoints=websecure"
+      - "traefik.http.routers.n8n.tls=true"
+      - "traefik.http.routers.n8n.tls.certresolver=le"
+      - "traefik.http.routers.n8n.middlewares=sec-headers@docker,compress@docker,rate100@docker"
       - "traefik.http.services.n8n.loadbalancer.server.port=5678"
       # HTTP to HTTPS redirect
       - "traefik.http.routers.n8n-http.rule=Host(`${DOMAIN_N8N}`)"
@@ -95,7 +132,3 @@ services:
 networks:
   n8n-network:
     driver: bridge
-
-volumes:
-  postgres-data:
-  n8n-data:
