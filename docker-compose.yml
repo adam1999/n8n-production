@@ -11,8 +11,6 @@ services:
       - --entrypoints.webalt.address=:5678
       - --providers.docker=true
       - --providers.docker.exposedbydefault=false
-      - --providers.file.directory=/dynamic
-      - --providers.file.watch=true
       - --log.level=INFO
     environment:
       - TZ=${TZ}
@@ -20,16 +18,11 @@ services:
       - "5678:5678"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - ./reverse-proxy/dynamic:/dynamic:ro
-      - ./reverse-proxy/certs:/certs
     networks:
       - n8n-network
     labels:
       - "traefik.enable=true"
-      # Middlewares communs de sécurité
-      - "traefik.http.middlewares.sec-headers.headers.stsSeconds=31536000"
-      - "traefik.http.middlewares.sec-headers.headers.stsIncludeSubdomains=true"
-      - "traefik.http.middlewares.sec-headers.headers.forceSTSHeader=true"
+      # Security headers middleware
       - "traefik.http.middlewares.sec-headers.headers.contentTypeNosniff=true"
       - "traefik.http.middlewares.sec-headers.headers.referrerPolicy=no-referrer"
       - "traefik.http.middlewares.sec-headers.headers.frameDeny=true"
@@ -72,11 +65,11 @@ services:
       - DB_POSTGRESDB_USER=n8n
       - DB_POSTGRESDB_PASSWORD=${POSTGRES_PASSWORD}
       - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}
-      - N8N_HOST=193.252.56.212
+      - N8N_HOST=${N8N_HOST}
       - N8N_PORT=5678
       - N8N_PROTOCOL=http
-      - N8N_EDITOR_BASE_URL=http://193.252.56.212:5678/
-      - WEBHOOK_URL=http://193.252.56.212:5678/
+      - N8N_EDITOR_BASE_URL=http://${N8N_HOST}:5678/
+      - WEBHOOK_URL=http://${N8N_HOST}:5678/
       - N8N_SECURE_COOKIE=false
       - GENERIC_TIMEZONE=${TZ}
       - N8N_DIAGNOSTICS_ENABLED=false
@@ -99,13 +92,10 @@ services:
           memory: 1.5g
     labels:
       - "traefik.enable=true"
-      # Router HTTP direct sur port 5678
       - "traefik.http.routers.n8n-5678.rule=PathPrefix(`/`)"
       - "traefik.http.routers.n8n-5678.entrypoints=webalt"
       - "traefik.http.services.n8n.loadbalancer.server.port=5678"
-      # 🔐 Basic auth protection (optionnel)
-      - "traefik.http.middlewares.n8n-auth.basicauth.users=admin:$$2y$$05$$9.YbNZI9FTX9XhXXGJTnO.PQRnhQYXv8jfb8pHxOKDYyQE38n6hU."
-      - "traefik.http.routers.n8n-5678.middlewares=n8n-auth@docker,sec-headers@docker,compress@docker,rate100@docker"
+      - "traefik.http.routers.n8n-5678.middlewares=sec-headers@docker,compress@docker,rate100@docker"
 
 networks:
   n8n-network:
